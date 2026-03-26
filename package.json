@@ -1,0 +1,24 @@
+{
+  "name": "prompt-optimizer",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "prompt-optimizer": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "yaml": "^2.8.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  }
+}
