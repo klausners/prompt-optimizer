@@ -7,7 +7,7 @@
   "author": "Klaus Heringer",
   "repository": {
     "type": "git",
-    "url": "https://github.com/klausners/prompt-optimizer.git"
+    "url": "git+https://github.com/klausners/prompt-optimizer.git"
   },
   "homepage": "https://github.com/klausners/prompt-optimizer",
   "keywords": [
@@ -24,7 +24,7 @@
     "llm"
   ],
   "bin": {
-    "prompt-optimizer": "./dist/cli.js"
+    "prompt-optimizer": "dist/cli.js"
   },
   "files": [
     "dist",
