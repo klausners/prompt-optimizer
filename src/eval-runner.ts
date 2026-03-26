@@ -12,9 +12,9 @@ export function runEval(config: OptimizerConfig): void {
   let cmd: string
   if (config.envFile) {
     const envFileResolved = path.resolve(config.envFile)
-    cmd = `cd "${evalDir}" && source "${envFileResolved}" && NODE_OPTIONS="--import tsx" npx promptfoo eval -c "${configFile}" -j 1 --env-file "${envFileResolved}" -o "${outputPath}"`
+    cmd = `cd "${evalDir}" && source "${envFileResolved}" && npx promptfoo eval -c "${configFile}" -j 1 --env-file "${envFileResolved}" -o "${outputPath}"`
   } else {
-    cmd = `cd "${evalDir}" && NODE_OPTIONS="--import tsx" npx promptfoo eval -c "${configFile}" -j 1 -o "${outputPath}"`
+    cmd = `cd "${evalDir}" && npx promptfoo eval -c "${configFile}" -j 1 -o "${outputPath}"`
   }
 
   try {
