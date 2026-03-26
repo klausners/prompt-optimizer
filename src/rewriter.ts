@@ -1,13 +1,12 @@
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { execSync } from 'child_process'
 import path from 'path'
-import Anthropic from '@anthropic-ai/sdk'
+import os from 'os'
 import type { OptimizerConfig } from './config.js'
 import type { DimensionScores } from './parser.js'
 
 const REWRITER_SYSTEM =
   'You are a prompt engineering assistant. Return only the rewritten prompt text. No commentary, no markdown fences, no preamble.'
-
-const anthropic = new Anthropic()
 
 export async function rewritePrompt(
   promptFile: string,
@@ -65,17 +64,39 @@ Rewrite the prompt to improve the failing dimensions. Preserve all existing {{pl
   }
 
   try {
-    const message = await anthropic.messages.create({
-      model: config.rewriterModel,
-      max_tokens: 4096,
-      system: REWRITER_SYSTEM,
-      messages: [{ role: 'user', content: userMessage }],
+    // Build a temporary promptfoo config to run the rewrite through any provider
+    const tmpDir = path.join(os.tmpdir(), 'prompt-optimizer-rewrite')
+    mkdirSync(tmpDir, { recursive: true })
+
+    const rewriteConfig = {
+      providers: [config.rewriterModel],
+      prompts: [`${REWRITER_SYSTEM}\n\n---\n\n{{message}}`],
+      tests: [{ vars: { message: userMessage } }],
+    }
+
+    const configPath = path.join(tmpDir, 'rewrite-config.yaml')
+    const outputPath = path.join(tmpDir, 'rewrite-output.json')
+
+    // Write config as JSON (promptfoo accepts both YAML and JSON)
+    writeFileSync(configPath, JSON.stringify(rewriteConfig, null, 2), 'utf-8')
+
+    let cmd = `npx promptfoo eval -c "${configPath}" -o "${outputPath}" --no-cache`
+    if (config.envFile) {
+      const envFileResolved = path.resolve(config.envFile)
+      cmd = `source "${envFileResolved}" && ${cmd} --env-file "${envFileResolved}"`
+    }
+
+    execSync(cmd, {
+      stdio: 'pipe',
+      shell: '/bin/bash',
+      timeout: 300_000, // 5 min
     })
 
-    const content = message.content[0]
-    if (content.type !== 'text') return null
+    const output = JSON.parse(readFileSync(outputPath, 'utf-8'))
+    const result = output?.results?.results?.[0]
+    if (!result?.response?.output) return null
 
-    let cleaned = content.text.trim()
+    let cleaned = String(result.response.output).trim()
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```\w*\n?/, '').replace(/\n?```$/, '')
     }
@@ -85,14 +106,14 @@ Rewrite the prompt to improve the failing dimensions. Preserve all existing {{pl
     const rewrittenPlaceholders = new Set(cleaned.match(/\{\{[\w]+\}\}/g) || [])
     for (const p of originalPlaceholders) {
       if (!rewrittenPlaceholders.has(p)) {
-        console.log(`  REJEITADO: placeholder ${p} perdido na reescrita`)
+        console.log(`  REJECTED: placeholder ${p} missing from rewrite`)
         return null
       }
     }
 
     return cleaned
   } catch (error: any) {
-    console.log(`  Erro na reescrita: ${error.message}`)
+    console.log(`  Rewrite error: ${error.message}`)
     return null
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "prompt-optimizer",
   "version": "0.1.0",
-  "description": "Close the eval-to-improvement loop for promptfoo. Automatically evaluate, identify low-scoring prompts, rewrite with Claude, and re-evaluate.",
+  "description": "Close the eval-to-improvement loop for promptfoo. Automatically evaluate, identify low-scoring prompts, rewrite with any LLM, and re-evaluate.",
   "type": "module",
   "license": "MIT",
   "author": "Klaus Heringer",
@@ -15,24 +15,28 @@
     "prompt-optimization",
     "prompt-engineering",
     "llm-eval",
-    "claude",
-    "anthropic",
     "ai-eval",
     "prompt-tuning",
     "llm-rubric",
-    "automated-prompt-improvement"
+    "automated-prompt-improvement",
+    "openai",
+    "anthropic",
+    "llm"
   ],
   "bin": {
     "prompt-optimizer": "./dist/cli.js"
   },
-  "files": ["dist", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "yaml": "^2.8.0"
   },
   "engines": {

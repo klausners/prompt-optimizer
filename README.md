@@ -1,6 +1,6 @@
 # prompt-optimizer
 
-Close the eval-to-improvement loop for [promptfoo](https://promptfoo.dev). Evaluate your prompts, identify what's failing, rewrite with Claude, and re-evaluate — automatically.
+Close the eval-to-improvement loop for [promptfoo](https://promptfoo.dev). Evaluate your prompts, identify what's failing, rewrite with any LLM, and re-evaluate — automatically.
 
 ## Why this exists
 
@@ -13,7 +13,7 @@ Unlike [DSPy](https://dspy.ai) or [Promptim](https://blog.langchain.com/promptim
 ## How it works
 
 ```
-promptfoo eval ──> parse scores ──> below threshold? ──> rewrite with Claude ──> re-eval
+promptfoo eval ──> parse scores ──> below threshold? ──> rewrite with LLM ──> re-eval
                                           │                      │
                                           │                 saves backup
                                           │              validates {{placeholders}}
@@ -27,7 +27,7 @@ promptfoo eval ──> parse scores ──> below threshold? ──> rewrite wit
 2. Parses scores per prompt, per dimension (your rubrics, your criteria)
 3. Identifies prompts below your threshold
 4. Asks before rewriting (human-in-the-loop)
-5. Backs up the current version, rewrites via Claude API, validates all `{{placeholders}}` are preserved
+5. Backs up the current version, rewrites via any promptfoo-supported provider, validates all `{{placeholders}}` are preserved
 6. Re-evaluates and repeats until all prompts pass or progress stagnates
 
 ## What makes it different
@@ -36,6 +36,7 @@ promptfoo eval ──> parse scores ──> below threshold? ──> rewrite wit
 |---|---|---|---|
 | Prompt format | Plain `.txt` files | DSPy signatures (framework-specific) | LangChain templates |
 | Eval system | Your existing promptfoo config | Built-in | LangSmith |
+| Rewriter LLM | Any promptfoo provider (OpenAI, Anthropic, Ollama, etc.) | Built-in | Built-in |
 | Optimization | Rubric-guided rewriting | Few-shot, fine-tuning, rewriting | Rewriting |
 | Human control | Asks before each rewrite, backs up versions | Automatic | Automatic |
 | Setup | One YAML config file | Rewrite your prompts as modules | Migrate to LangChain |
@@ -44,8 +45,8 @@ promptfoo eval ──> parse scores ──> below threshold? ──> rewrite wit
 ## Requirements
 
 - Node.js 20+
-- `ANTHROPIC_API_KEY` environment variable
 - promptfoo in your project (`npm install -D promptfoo`)
+- API key for your chosen rewriter provider (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 - promptfoo config with `llm-rubric` assertions (see "Writing good rubrics")
 
 ## Installation
@@ -67,7 +68,7 @@ versionsDir: evals/prompt-versions
 threshold: 4.0
 maxIterations: 3
 stagnationThreshold: 0.3
-rewriterModel: claude-sonnet-4-20250514
+rewriterModel: openai:gpt-4o  # any promptfoo provider works
 
 # Map dimension names to keywords in your rubric text
 dimensions:
@@ -107,7 +108,7 @@ All paths resolve relative to `process.cwd()`.
 | threshold | no | 4.0 | Minimum acceptable score (1-5 Likert scale) |
 | maxIterations | no | 3 | Max eval-improve cycles before stopping |
 | stagnationThreshold | no | 0.3 | Min improvement on any failing dimension to keep going |
-| rewriterModel | no | claude-sonnet-4-20250514 | Claude model for rewrites |
+| rewriterModel | no | openai:gpt-4o | Any [promptfoo provider](https://www.promptfoo.dev/docs/providers/) for rewrites (e.g., `anthropic:claude-sonnet-4-20250514`, `ollama:llama3`, `openai:gpt-4o`) |
 | dimensions | yes | — | `name: KEYWORD` — keyword must appear in your rubric assertion text |
 | providerToFile | yes | — | `provider-label: filename` — links providers to prompt files |
 
@@ -181,7 +182,7 @@ When multiple providers share a prompt file (configured via `providerToFile`), t
 - **Version backups**: saves the current prompt before overwriting
 - **Placeholder validation**: rejects rewrites that drop any `{{placeholder}}`
 - **Stagnation detection**: stops automatically when rewrites aren't helping
-- **No secrets in the package**: reads `ANTHROPIC_API_KEY` from your environment, never stores credentials
+- **No secrets in the package**: reads API keys from your environment, never stores credentials
 
 ## Platform support
 

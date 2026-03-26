@@ -36,7 +36,7 @@ export function loadConfig(configPath: string): OptimizerConfig {
     threshold: parsed.threshold ?? 4.0,
     maxIterations: parsed.maxIterations ?? 3,
     stagnationThreshold: parsed.stagnationThreshold ?? 0.3,
-    rewriterModel: parsed.rewriterModel ?? 'claude-sonnet-4-20250514',
+    rewriterModel: parsed.rewriterModel ?? 'openai:gpt-4o',
     dimensions: parsed.dimensions,
     providerToFile: parsed.providerToFile,
   }
