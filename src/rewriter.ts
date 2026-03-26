@@ -1,0 +1,98 @@
+import { readFileSync } from 'fs'
+import path from 'path'
+import Anthropic from '@anthropic-ai/sdk'
+import type { OptimizerConfig } from './config.js'
+import type { DimensionScores } from './parser.js'
+
+const REWRITER_SYSTEM =
+  'You are a prompt engineering assistant. Return only the rewritten prompt text. No commentary, no markdown fences, no preamble.'
+
+const anthropic = new Anthropic()
+
+export async function rewritePrompt(
+  promptFile: string,
+  scores: DimensionScores,
+  rubrics: Record<string, string>,
+  config: OptimizerConfig,
+  isShared?: boolean,
+  providerNames?: string[]
+): Promise<string | null> {
+  const filePath = path.join(path.resolve(config.promptsDir), promptFile)
+  const original = readFileSync(filePath, 'utf-8')
+
+  const failingDimensions = Array.from(scores.entries()).filter(
+    ([, data]) => data.score < config.threshold
+  )
+
+  const scoreSummary = Array.from(scores.entries())
+    .map(([dim, data]) => `  ${dim}: ${data.score.toFixed(2)}/5.0`)
+    .join('\n')
+
+  let failingDetails = ''
+  for (const [dim, data] of failingDimensions) {
+    failingDetails += `\n### ${dim} (score: ${data.score.toFixed(2)})\n`
+    const sampleReasons = data.reasons.slice(0, 3)
+    for (const reason of sampleReasons) {
+      const stripped = reason.replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim()
+      failingDetails += `Judge reasoning: ${stripped}\n`
+    }
+  }
+
+  let rubricDefs = '\n## Evaluation rubrics (what the judge checks):\n'
+  for (const [dim] of failingDimensions) {
+    const rubric = rubrics[dim]
+    if (rubric) {
+      rubricDefs += `\n### ${dim}:\n${rubric}\n`
+    }
+  }
+
+  let userMessage = `You are rewriting the following AI system prompt to improve its quality scores.
+
+## Current prompt:
+${original}
+
+## Current scores (mean across test cases):
+${scoreSummary}
+
+## Failing dimensions (below ${config.threshold}) — improve these:
+${failingDetails}
+${rubricDefs}
+
+Rewrite the prompt to improve the failing dimensions. Preserve all existing {{placeholder}} variables exactly as-is. Return only the rewritten prompt text.`
+
+  if (isShared && providerNames && providerNames.length > 1) {
+    userMessage += `\n\nThis prompt is shared by multiple providers (${providerNames.join(', ')}). Do not optimize for one at the expense of the other.`
+  }
+
+  try {
+    const message = await anthropic.messages.create({
+      model: config.rewriterModel,
+      max_tokens: 4096,
+      system: REWRITER_SYSTEM,
+      messages: [{ role: 'user', content: userMessage }],
+    })
+
+    const content = message.content[0]
+    if (content.type !== 'text') return null
+
+    let cleaned = content.text.trim()
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```\w*\n?/, '').replace(/\n?```$/, '')
+    }
+
+    // Validate all original {{placeholder}}s are preserved
+    const originalPlaceholders = new Set(original.match(/\{\{[\w]+\}\}/g) || [])
+    const rewrittenPlaceholders = new Set(cleaned.match(/\{\{[\w]+\}\}/g) || [])
+    for (const p of originalPlaceholders) {
+      if (!rewrittenPlaceholders.has(p)) {
+        console.log(`  REJEITADO: placeholder ${p} perdido na reescrita`)
+        return null
+      }
+    }
+
+    return cleaned
+  } catch (error: any) {
+    console.log(`  Erro na reescrita: ${error.message}`)
+    return null
+  }
+}
