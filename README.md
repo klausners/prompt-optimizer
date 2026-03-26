@@ -34,9 +34,9 @@ promptfoo eval ──> parse scores ──> below threshold? ──> rewrite wit
 
 | | prompt-optimizer | DSPy | Promptim |
 |---|---|---|---|
-| Prompt format | Plain `.txt` files | DSPy signatures (framework-specific) | LangChain templates |
+| Prompt format | Plain `.txt` files | DSPy signatures | LangChain templates |
 | Eval system | Your existing promptfoo config | Built-in | LangSmith |
-| Rewriter LLM | Any promptfoo provider (OpenAI, Anthropic, Ollama, etc.) | Built-in | Built-in |
+| Rewriter LLM | Any [promptfoo provider](https://www.promptfoo.dev/docs/providers/) | Any (requires DSPy runtime) | Any (requires LangChain runtime) |
 | Optimization | Rubric-guided rewriting | Few-shot, fine-tuning, rewriting | Rewriting |
 | Human control | Asks before each rewrite, backs up versions | Automatic | Automatic |
 | Setup | One YAML config file | Rewrite your prompts as modules | Migrate to LangChain |
@@ -95,7 +95,7 @@ Or with a custom config path:
 npx prompt-optimizer -c custom.yaml
 ```
 
-All paths resolve relative to `process.cwd()`.
+All paths resolve relative to the current working directory.
 
 ## Config reference
 
@@ -108,9 +108,11 @@ All paths resolve relative to `process.cwd()`.
 | threshold | no | 4.0 | Minimum acceptable score (1-5 Likert scale) |
 | maxIterations | no | 3 | Max eval-improve cycles before stopping |
 | stagnationThreshold | no | 0.3 | Min improvement on any failing dimension to keep going |
-| rewriterModel | no | openai:gpt-4o | Any [promptfoo provider](https://www.promptfoo.dev/docs/providers/) for rewrites (e.g., `anthropic:claude-sonnet-4-20250514`, `ollama:llama3`, `openai:gpt-4o`) |
+| rewriterModel | no | openai:gpt-4o | Any [promptfoo provider](https://www.promptfoo.dev/docs/providers/) for rewrites |
 | dimensions | yes | — | `name: KEYWORD` — keyword must appear in your rubric assertion text |
 | providerToFile | yes | — | `provider-label: filename` — links providers to prompt files |
+
+When multiple providers share a prompt file (via `providerToFile`), the optimizer merges their scores (keeping the worst per dimension) and tells the rewriter to balance improvements across all of them.
 
 ## Writing good rubrics
 
@@ -164,21 +166,14 @@ The optimizer maps scores to dimensions by keyword matching:
 
 1. You define `clarity: CLARITY` in your config
 2. You include `CLARITY` in your rubric's assertion text
-3. The judge returns a score with `<score>N</score>` in its reasoning
-4. The optimizer reads it and maps it to the `clarity` dimension
+3. promptfoo's judge evaluates the output and assigns a score
+4. The optimizer reads the score and maps it to the `clarity` dimension
 
 Rubrics without a matching keyword are ignored by the optimizer.
 
-## Shared prompt files
-
-When multiple providers share a prompt file (configured via `providerToFile`), the optimizer:
-- Merges their scores, keeping the worst per dimension
-- Tells the rewriter to balance improvements across all providers
-- Avoids optimizing for one provider at the expense of another
-
 ## Case study: multi-prompt pipeline optimization
 
-A production system with 5 chained prompts (generation, clarification, planning, execution, synthesis) was producing structurally correct but generic outputs. The output for one industry was indistinguishable from another.
+This tool was used to optimize a production system with 5 chained prompts (generation, clarification, planning, execution, synthesis). The system was producing structurally correct but generic outputs — the output for one industry was indistinguishable from another.
 
 **Setup:** 4 dimensions (depth, specificity, actionability, format), 6 test profiles, threshold 4.0.
 
