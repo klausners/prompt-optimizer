@@ -176,6 +176,40 @@ When multiple providers share a prompt file (configured via `providerToFile`), t
 - Tells the rewriter to balance improvements across all providers
 - Avoids optimizing for one provider at the expense of another
 
+## Case study: multi-prompt pipeline optimization
+
+A production system with 5 chained prompts (generation, clarification, planning, execution, synthesis) was producing structurally correct but generic outputs. The output for one industry was indistinguishable from another.
+
+**Setup:** 4 dimensions (depth, specificity, actionability, format), 6 test profiles, threshold 4.0.
+
+**Baseline scores:**
+
+| Prompt | Depth | Specificity | Actionability | Format | Avg |
+|---|---|---|---|---|---|
+| generation | 2.0 | 3.0 | 3.5 | 2.5 | **2.75** |
+| clarification | 2.5 | 3.0 | 3.5 | 4.0 | 3.25 |
+| planning | 3.5 | 3.5 | 3.5 | 4.0 | 3.62 |
+| execution | 4.0 | 4.0 | 4.0 | 4.5 | 4.12 |
+| synthesis | 3.5 | 4.0 | 4.0 | 4.5 | 4.0 |
+
+**After 9 iterations:**
+
+| Metric | Baseline | Final |
+|---|---|---|
+| Worst prompt avg | 2.75 | 4.0 |
+| Depth (global) | 3.1 | 4.0 |
+| Time to convergence | — | ~6 hours |
+
+**What moved the needle most:**
+
+1. **Analyze before generating** (+2.0 depth) — adding a "step 0" that forces the model to analyze the user's context before producing output
+2. **Cross-cutting depth instruction** (+0.9 global) — a single instruction injected into all prompts: "identify 3 dynamics specific to this domain that a generalist would miss"
+3. **Reorder JSON schema fields** (+1.0 actionability) — placing the reasoning field before the output field forces implicit chain-of-thought
+4. **Constrain output size** (+1.5 format) — 3 well-defined items beat 5 truncated ones
+5. **Regressions confirm causality** — when a linter reverted a change, scores dropped back to baseline, proving the specific change caused the improvement
+
+**Key insight:** the upstream prompt limits the entire pipeline. Optimizing downstream prompts had no effect while the first prompt produced generic output.
+
 ## Safety
 
 - **Human-in-the-loop**: asks before every rewrite cycle
